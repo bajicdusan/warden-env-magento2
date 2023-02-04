@@ -2,6 +2,29 @@
 [[ ! ${WARDEN_DIR} ]] && >&2 echo -e "\033[31mThis script is not intended to be run directly!\033[0m" && exit 1
 set -euo pipefail
 
+## configure command defaults
+SINGLE_SLASH_ARGUMENTS=
+DB_IMPORT=1
+CLEAN_INSTALL=
+AUTO_PULL=1
+META_PACKAGE="magento/project-community-edition"
+SAMPLE_DATA=0
+ADMIN_PATH="admin"
+ADMIN_PASS=Test1234
+## ADMIN_PASS=$(warden env exec -T php-fpm pwgen -n1 16)
+ADMIN_USER=admin
+USE_TFA=0
+HTTP_PROTOCOL="https"
+PRINT_MORE_VERBOSE_ON_INSTALL=1
+USE_BASH_ALIASES=1
+OPEN_IN_BROWSER=2
+APPLY_PATCHES=
+MULTI_ENV=1
+META_VERSION=""
+META_PACKAGE_ERROR_MESSAGE='Allowed magento2 metapackages: magento/project-community-edition, magento/project-enterprise-edition'
+META_VERSION_ERROR_MESSAGE="Did not find meta version, valid values are 2.3.4 or later."
+SQL_ERROR_MESSAGE='Did not find sql file. Make sure that the file is in the following format: .sql.gz'
+
 function :: {
   echo
   echo "==> [$(date +%H:%M:%S)] $@"
@@ -25,10 +48,7 @@ function error_message {
 
 function print_error_message {
   error_message
-
-  if [[ $# -gt 0 ]]; then
-    printf "$1\n"
-  fi
+  echo -e "$@\n"
   exit 1
 }
 
@@ -47,29 +67,9 @@ if [[ $# -eq 0 ]]; then
   exit 1
 fi
 
-SINGLE_SLASH_ARGUMENTS=
-
-## check is short or long argument parsing
-if [[ ! ${SINGLE_SLASH_ARGUMENTS} && "$1" = --* ]]; then
-  SINGLE_SLASH_ARGUMENTS=0
-  ## echo "DOUBLE quote"
-fi
-
-if [[ ! ${SINGLE_SLASH_ARGUMENTS} && "$1" = -* ]]; then
-  SINGLE_SLASH_ARGUMENTS=1
-  ## echo "SINGLE quote"
-fi
-
 function print_single_slash_help_message {
   error_message
-  if [[ $# -gt 0 ]]; then
-    printf "$1\n"
-  fi
-
-  if [[ $# -gt 1 ]]; then
-    printf "$2\n"
-  fi
-
+  echo -e "$@"
   echo ""
   echo "Usage:"
   echo "warden bootstrap -cpvsunw magento/project-community-edition 2.4.5-p1 magento.sql.gz"
@@ -86,19 +86,96 @@ function print_single_slash_help_message {
   exit 1
 }
 
+## check is short or long argument parsing
+if [[ ! ${SINGLE_SLASH_ARGUMENTS} && "$1" = --* ]]; then
+  SINGLE_SLASH_ARGUMENTS=0
+  ## echo "DOUBLE quote"
+fi
+
+if [[ ! ${SINGLE_SLASH_ARGUMENTS} && "$1" = -* ]]; then
+  SINGLE_SLASH_ARGUMENTS=1
+  ## echo "SINGLE quote"
+fi
+
+WARDEN_ENV_PATH="$(locateEnvPath)" || exit $?
+
+## searching trough argument list for a meta version argument
+if [[ ${SINGLE_SLASH_ARGUMENTS} == 1 && ${MULTI_ENV} == 1 ]]; then
+  for ver in "$@"
+  do
+    if [[ "$ver" =~ ^2\.[3-9]\.[0-9].* ]]; then
+      ## printf "Found meta-version: $ver\n"
+      META_VERSION=$ver
+      break
+    fi
+  done
+fi
+
+## if found meta version in arguments load its config else load default config
+if [[ ${MULTI_ENV} == 1 && $META_VERSION ]]; then
+  printf "Loading env config for meta version: $META_VERSION\n"
+  ENV_FOLDER_NAME=${META_VERSION%-*}
+
+  if [ -f "./env/${ENV_FOLDER_NAME}/.env" ]; then
+    echo 'Loading latest system requirements for meta version' ${META_VERSION} "from ./env/${ENV_FOLDER_NAME}/.env"
+    :: "cp .env file to env/${ENV_FOLDER_NAME}/backup"
+    cp .env ./env/backup/.env
+
+    :: "cp ./env/${ENV_FOLDER_NAME}/.env to .env"
+    cp ./env/${ENV_FOLDER_NAME}/.env .env
+    loadEnvConfig "./env/${ENV_FOLDER_NAME}" || exit $?
+  else
+    echo 'There is no .env file under: env/'${ENV_FOLDER_NAME}'/.env'
+    echo 'Please create the folder and new .env file with right parameters.'
+    exit 1
+  fi
+else
+  ## load configuration needed for setup
+  loadEnvConfig "${WARDEN_ENV_PATH}" || exit $?
+fi
+
+assertDockerRunning
+
+## change into the project directory
+cd "${WARDEN_ENV_PATH}"
+
+WARDEN_WEB_ROOT="$(echo "${WARDEN_WEB_ROOT:-/}" | sed 's#^/#./#')"
+REQUIRED_FILES=("${WARDEN_WEB_ROOT}/auth.json")
+DB_DUMP="${DB_DUMP:-./backfill/magento-db.sql.gz}"
+FULL_DOMAIN="${TRAEFIK_DOMAIN}"
+if [[ ${TRAEFIK_SUBDOMAIN} ]]; then
+  FULL_DOMAIN="${TRAEFIK_SUBDOMAIN}.${TRAEFIK_DOMAIN}"
+fi
+URL_FRONT="${HTTP_PROTOCOL}://${FULL_DOMAIN}/"
+URL_ADMIN="${HTTP_PROTOCOL}://${FULL_DOMAIN}/${ADMIN_PATH}/"
+
+## 2 = xdg-open, 1 = sensible-browser, 0 = off $traefik_url &>/dev/null
+function open_url_in_browser {
+  if [[ ${OPEN_IN_BROWSER} == 2 ]]; then
+    :: Opening URL in browser
+    xdg-open $URL_FRONT &>/dev/null
+  fi
+
+  if [[ ${OPEN_IN_BROWSER} == 1 ]]; then
+    :: Opening URL in browser
+    sensible-browser $URL_FRONT &>/dev/null
+  fi
+}
+
+if [[ ${USE_BASH_ALIASES} == 1 && -f "${WARDEN_WEB_ROOT}/aliases" ]]; then
+  printf "You already have Magento2 instance installed.\n"
+  open_url_in_browser
+  exit 1
+fi
+
+## short argument parsing
 if [[ ${SINGLE_SLASH_ARGUMENTS} == 1 ]]; then
   EXPECTED_ARGS=1
-  COMMAND_TO_RUN=
   ALLOWED_META_PACKAGES=(magento/project-community-edition magento/project-enterprise-edition)
   FOUND_META_PACKAGE=
   FOUND_META_VERSION=
   FOUND_SQL_FILENAME=
-  COUNTER=0
-  META_PACKAGE_ERROR_MESSAGE='Allowed magento2 metapackages: magento/project-community-edition, magento/project-enterprise-edition'
-  META_VERSION_ERROR_MESSAGE='Did not find meta version, valid values are 2.3.4 or later.'
-  SQL_ERROR_MESSAGE='Did not find sql file. Make sure that the file is in the following format: .sql.gz'
 
-  ## short argument parsing
   while read -n1 character; do
 
     if [[ "$character" = -* ]]; then
@@ -109,31 +186,30 @@ if [[ ${SINGLE_SLASH_ARGUMENTS} == 1 ]]; then
     ## echo second arg is $2
     case "$character" in
       c)
-        COMMAND_TO_RUN="$COMMAND_TO_RUN --clean-install"
+        REQUIRED_FILES+=("${WARDEN_WEB_ROOT}/app/etc/env.php.init.php")
+        CLEAN_INSTALL=1
+        DB_IMPORT=
         ;;
       p)
-        COMMAND_TO_RUN="$COMMAND_TO_RUN --meta-package"
         EXPECTED_ARGS=$(($EXPECTED_ARGS + 1))
         FOUND_META_PACKAGE=0
         ;;
       v)
-        COMMAND_TO_RUN="$COMMAND_TO_RUN --meta-version"
         EXPECTED_ARGS=$(($EXPECTED_ARGS + 1))
         FOUND_META_VERSION=0
         ;;
       s)
-        COMMAND_TO_RUN="$COMMAND_TO_RUN --skip-db-import"
+        DB_IMPORT=
         ;;
       u)
-        COMMAND_TO_RUN="$COMMAND_TO_RUN --db-dump"
         EXPECTED_ARGS=$(($EXPECTED_ARGS + 1))
         FOUND_SQL_FILENAME=0
         ;;
       n)
-        COMMAND_TO_RUN="$COMMAND_TO_RUN --no-pull"
+        AUTO_PULL=
         ;;
       w)
-        COMMAND_TO_RUN="$COMMAND_TO_RUN --with-sample-data"
+        SAMPLE_DATA=1
         ;;
       *)
         ## error "Unrecognized argument '$character'"
@@ -168,6 +244,7 @@ if [[ ${SINGLE_SLASH_ARGUMENTS} == 1 ]]; then
     exit 1
   fi
 
+  COUNTER=0
   while test $# -gt 0
   do
     if [[ "$1" = -* ]]; then
@@ -188,6 +265,7 @@ if [[ ${SINGLE_SLASH_ARGUMENTS} == 1 ]]; then
       if [[ $FOUND_META_PACKAGE == 0 && "$1" =~ $package ]]; then
         printf "Found meta-package: $1\n"
         FOUND_META_PACKAGE=$1
+        META_PACKAGE="$1"
         shift
         break
       fi
@@ -196,11 +274,18 @@ if [[ ${SINGLE_SLASH_ARGUMENTS} == 1 ]]; then
     if [[ $FOUND_META_VERSION == 0 && "$1" =~ ^2\.[3-9]\.[0-9].* ]]; then
       printf "Found meta-version: $1\n"
       FOUND_META_VERSION=$1
+      META_VERSION="$1"
+
+      if test $(version "${META_VERSION}") -lt "$(version 2.3.4)"; then
+        print_single_slash_help_message $META_VERSION_ERROR_MESSAGE
+        exit 1
+      fi
     fi
 
     if [[ $FOUND_SQL_FILENAME == 0 && "$1" =~ .*\.sql\.gz$ ]]; then
       printf "Found SQL filename: $1\n"
       FOUND_SQL_FILENAME=$1
+      DB_DUMP="$1"
     fi
 
     if [[ COUNTER -ge 10 ]]; then
@@ -227,93 +312,11 @@ if [[ ${SINGLE_SLASH_ARGUMENTS} == 1 ]]; then
     print_single_slash_help_message $SQL_ERROR_MESSAGE
     exit 1
   fi
-
-  ## echo "all good"
-
-  function insert_after_match {
-    COMMAND_TO_RUN="${COMMAND_TO_RUN%%$1*}$1$2${COMMAND_TO_RUN##*$1}"
-  }
-
-  if [[ $FOUND_META_PACKAGE && $FOUND_META_PACKAGE != 0 ]]; then
-    insert_after_match "--meta-package" " $FOUND_META_PACKAGE"
-  fi
-
-  if [[ $FOUND_META_VERSION && $FOUND_META_VERSION != 0 ]]; then
-    insert_after_match "--meta-version" " $FOUND_META_VERSION"
-  fi
-
-  if [[ $FOUND_SQL_FILENAME && $FOUND_SQL_FILENAME != 0 ]]; then
-    insert_after_match "--db-dump" " $FOUND_SQL_FILENAME"
-  fi
-
-  if [[ $COMMAND_TO_RUN ]]; then
-    ## echo "Command looks like: $COMMAND_TO_RUN"
-    warden bootstrap $COMMAND_TO_RUN || exit $?
-    exit 0
-  fi
-
-  error "Fatal Error, there is no command to run. Command parsed:$COMMAND_TO_RUN"
-  exit -1
-fi
-
-## load configuration needed for setup
-WARDEN_ENV_PATH="$(locateEnvPath)" || exit $?
-loadEnvConfig "${WARDEN_ENV_PATH}" || exit $?
-
-assertDockerRunning
-
-## change into the project directory
-cd "${WARDEN_ENV_PATH}"
-
-## configure command defaults
-WARDEN_WEB_ROOT="$(echo "${WARDEN_WEB_ROOT:-/}" | sed 's#^/#./#')"
-REQUIRED_FILES=("${WARDEN_WEB_ROOT}/auth.json")
-DB_DUMP="${DB_DUMP:-./backfill/magento-db.sql.gz}"
-DB_IMPORT=1
-CLEAN_INSTALL=
-AUTO_PULL=1
-META_PACKAGE="magento/project-community-edition"
-META_VERSION=""
-SAMPLE_DATA=0
-ADMIN_PATH="admin"
-ADMIN_PASS=Test1234
-## ADMIN_PASS=$(warden env exec -T php-fpm pwgen -n1 16)
-ADMIN_USER=admin
-USE_TFA=0
-HTTP_PROTOCOL="https"
-FULL_DOMAIN="${TRAEFIK_DOMAIN}"
-if [[ ${TRAEFIK_SUBDOMAIN} ]]; then
-  FULL_DOMAIN="${TRAEFIK_SUBDOMAIN}.${TRAEFIK_DOMAIN}"
-fi
-URL_FRONT="${HTTP_PROTOCOL}://${FULL_DOMAIN}/"
-URL_ADMIN="${HTTP_PROTOCOL}://${FULL_DOMAIN}/${ADMIN_PATH}/"
-PRINT_MORE_VERBOSE_ON_INSTALL=1
-USE_BASH_ALIASES=1
-MULTI_ENV=1
-OPEN_IN_BROWSER=2
-
-## 2 = xdg-open, 1 = sensible-browser, 0 = off $traefik_url &>/dev/null
-function open_url_in_browser {
-  if [[ ${OPEN_IN_BROWSER} == 2 ]]; then
-    :: Opening URL in browser
-    xdg-open $URL_FRONT &>/dev/null
-  fi
-
-  if [[ ${OPEN_IN_BROWSER} == 1 ]]; then
-    :: Opening URL in browser
-    sensible-browser $URL_FRONT &>/dev/null
-  fi
-}
-
-if [[ ${USE_BASH_ALIASES} == 1 && -f "${WARDEN_WEB_ROOT}/aliases" ]]; then
-  printf "You already have Magento2 instance installed.\n"
-  open_url_in_browser
-  exit 1
 fi
 
 ## argument parsing
 ## parse arguments
-while (( SINGLE_SLASH_ARGUMENTS != 1 && "$#" )); do
+while (( ${SINGLE_SLASH_ARGUMENTS} != 1 && "$#" )); do
     case "$1" in
         --clean-install)
             REQUIRED_FILES+=("${WARDEN_WEB_ROOT}/app/etc/env.php.init.php")
@@ -360,23 +363,6 @@ while (( SINGLE_SLASH_ARGUMENTS != 1 && "$#" )); do
             ;;
     esac
 done
-
-## check for META_VERSION parameter and for .env file under (ex ./env/2.4.5/.env)
-if [[ ${MULTI_ENV} == 1 && ${META_VERSION} ]]; then
-  ENV_FOLDER_NAME=${META_VERSION%-*}
-
-  if [ -f "./env/${ENV_FOLDER_NAME}/.env" ]; then
-    echo 'Loading latest defined system requirements for meta version' ${META_VERSION} "from ./env/${ENV_FOLDER_NAME}/.env"  
-    loadEnvConfig "./env/${ENV_FOLDER_NAME}" || exit $?
-  else
-    echo 'There is no .env file under: env/'${ENV_FOLDER_NAME}'/.env'
-    echo 'Please create the folder and new .env file with right parameters.'
-    exit 1
-  fi
-
-  WARDEN_WEB_ROOT="$(echo "${WARDEN_WEB_ROOT:-/}" | sed 's#^/#./#')"
-  REQUIRED_FILES=("${WARDEN_WEB_ROOT}/auth.json")
-fi
 
 ## check for etc directory (could be deleted)
 if [ ! -d "${WARDEN_WEB_ROOT}/app/etc" ]; then
@@ -542,9 +528,19 @@ elif [[ ${CLEAN_INSTALL} ]]; then
 ## (https://patch-diff.githubusercontent.com/raw/magento/magento2-page-builder/pull/778.patch)
   if [[ ${META_VERSION} ]]; then
     if test $(version "${META_VERSION}") -eq "$(version 2.4.5)"; then
-      :: Patching Magento module-page-builder
-      patch ${WARDEN_WEB_ROOT}/vendor/magento/module-page-builder/Plugin/Catalog/Model/Product/Attribute/RepositoryPlugin.php ./patches/778.patch
+      APPLY_PATCHES=1
     fi
+    if test $(version "${META_VERSION}") -eq "$(version 2.4.4)"; then
+      APPLY_PATCHES=1
+    fi
+    if test $(version "${META_VERSION}") -eq "$(version 2.4.3)"; then
+      APPLY_PATCHES=1
+    fi
+  fi
+
+  if [[ ${APPLY_PATCHES} == 1 ]]; then
+    :: Patching Magento module-page-builder
+    patch ${WARDEN_WEB_ROOT}/vendor/magento/module-page-builder/Plugin/Catalog/Model/Product/Attribute/RepositoryPlugin.php ./patches/778.patch
   fi
 
   :: Installing application

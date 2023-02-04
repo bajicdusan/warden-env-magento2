@@ -1,0 +1,29 @@
+--- vendor/magento/module-page-builder/Plugin/Catalog/Model/Product/Attribute/RepositoryPlugin.php	2023-01-20 17:43:13.262652463 +0000
++++ vendor/magento/module-page-builder/Plugin/Catalog/Model/Product/Attribute/RepositoryPlugin.php	2023-01-20 17:43:25.766091649 +0000
+@@ -36,8 +36,12 @@
+         \Magento\Catalog\Model\Product\Attribute\Repository $subject,
+         \Magento\Catalog\Api\Data\ProductAttributeInterface $attribute
+     ) {
+-        $isPageBuilderEnabled = $attribute->getData('extension_attributes')
+-            ? $attribute->getData('extension_attributes')->getIsPagebuilderEnabled()
++//        $isPageBuilderEnabled = $attribute->getData('extension_attributes')
++//            ? $attribute->getData('extension_attributes')->getIsPagebuilderEnabled()
++//            : 0;
++        $extensionAttributes = $attribute->getData('extension_attributes');
++        $isPageBuilderEnabled = ($extensionAttributes && method_exists($extensionAttributes, 'getIsPagebuilderEnabled'))
++            ? $extensionAttributes->getIsPagebuilderEnabled()
+             : 0;
+         $attribute->setData('is_pagebuilder_enabled', $isPageBuilderEnabled);
+     }
+@@ -58,7 +62,10 @@
+         $extensionAttribute = $result->getExtensionAttributes()
+             ? $result->getExtensionAttributes()
+             : $this->extensionAttributesFactory->create();
+-        $extensionAttribute->setIsPagebuilderEnabled($isPageBuilderEnabled);
++//        $extensionAttribute->setIsPagebuilderEnabled($isPageBuilderEnabled);
++        if (method_exists($extensionAttribute, 'setIsPagebuilderEnabled')) {
++            $extensionAttribute->setIsPagebuilderEnabled($isPageBuilderEnabled);
++        }
+         $result->setExtensionAttributes($extensionAttribute);
+         return $result;
+     }

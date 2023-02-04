@@ -20,6 +20,8 @@ WARDEN_USAGE=$(cat <<EOF
   --no-pull         when specified latest images will not be explicitly pulled prior
                     to environment startup to facilitate use of locally built images
 
+  --with-sample-data  installs magento sample data
+
   --skip-db-import  skips over db import (assume db has already been imported)
 
 \033[33mArguments:\033[0m

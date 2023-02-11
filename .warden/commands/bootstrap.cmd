@@ -3,39 +3,61 @@
 set -euo pipefail
 
 ## configure command defaults
+## leave as is, it determines if the arguments are single or two slash ones (def:SINGLE_SLASH_ARGUMENTS=)
 SINGLE_SLASH_ARGUMENTS=
+## leave as is, enables db import. Will be overriden if no argument is supplied --skip-db-import (-s) or --clean-install (-c) (def:DB_IMPORT=1)
 DB_IMPORT=1
+## leave as is, it determines if it should do a clean install if argument is supplied --clean-install (-c) (def:CLEAN_INSTALL=)
 CLEAN_INSTALL=
+## leave as is, if specified argument --no-pull (-n) it won't pull latest env images (def:AUTO_PULL=1)
 AUTO_PULL=1
+## leave as is, it defaults to this Magento meta package, if specified argument --meta-package (-p) you can change to magento/project-enterprise-edition (def:META_PACKAGE="magento/project-community-edition")
 META_PACKAGE="magento/project-community-edition"
+## leave as is, if specified argument --with-sample-data (-w) it will install Magento sample data (def:SAMPLE_DATA=0)
 SAMPLE_DATA=0
-ADMIN_PATH="admin"
-ADMIN_PASS=Test1234
-## ADMIN_PASS=$(warden env exec -T php-fpm pwgen -n1 16)
-ADMIN_USER=admin
-USE_TFA=0
-HTTP_PROTOCOL="https"
-PRINT_MORE_VERBOSE_ON_INSTALL=1
-USE_BASH_ALIASES=1
-OPEN_IN_BROWSER=2
+## leave as is, determines the magento version (supported: 2.4.3, 2.4.4 and 2.4.5) and applies patches needed to finish install in one go (def: APPLY_PATCHES=)
 APPLY_PATCHES=
+## leave as is, used to check if there are present env folder with multiple envs (def: MULTI_ENV=1)
 MULTI_ENV=1
+## leave as is, default meta version, if specified argument --meta-version (-v) then it will proceed to instal that version (def: META_VERSION="")
 META_VERSION=""
-META_PACKAGE_ERROR_MESSAGE='Allowed magento2 metapackages: magento/project-community-edition, magento/project-enterprise-edition'
-META_VERSION_ERROR_MESSAGE="Did not find meta version, valid values are 2.3.4 or later."
-SQL_ERROR_MESSAGE='Did not find sql file. Make sure that the file is in the following format: .sql.gz'
+## default Magento admin path
+ADMIN_PATH="admin"
+## default Magento admin password
+ADMIN_PASS=Test1234
+## default Magento admin username
+ADMIN_USER=admin
+## if it should print out admin credentials on install
+PRINT_ADMIN_CREDENTIALS=
+## if it should setup two factor authentication
+USE_TFA=0
+## http protocol, either http or https
+HTTP_PROTOCOL="https"
+## prints out more urls on install (warden env urls and warden svc urls)
+PRINT_MORE_VERBOSE_ON_INSTALL=1
+## if you have custom aliases that you like to to in warden shell as well (specify them under: patches/aliases file)
+USE_BASH_ALIASES=1
+## if magento store url should be opened on install (2 = xdg-open, 1 = sensible-browser, 0 = off -> $traefik_url &>/dev/null)
+OPEN_IN_BROWSER=0
 
+## error messages:
+META_PACKAGE_ERROR_MESSAGE="Allowed magento2 metapackages: magento/project-community-edition, magento/project-enterprise-edition"
+META_VERSION_ERROR_MESSAGE="Did not find meta version, valid values are 2.3.4 or later."
+SQL_ERROR_MESSAGE="Did not find sql file. Make sure that the file is in the following format: .sql.gz"
+
+## prints time with command or comment
 function :: {
   echo
   echo "==> [$(date +%H:%M:%S)] $@"
 }
 
-## help message
+## help message, triggers bootstrap --help
 function print_help_message {
   warden bootstrap --help
   exit 1
 }
 
+## error ascii art
 function error_message {
     echo "
   ___ _ __ _ __ ___  _ __ 
@@ -46,12 +68,14 @@ function error_message {
 "
 }
 
+## default error message with ascii art and comment
 function print_error_message {
   error_message
   echo -e "$@\n"
   exit 1
 }
 
+## start up warden environment and services
 function set_warden_up {
   echo "Defaulting to start services and environment."
   echo ""
@@ -60,13 +84,7 @@ function set_warden_up {
   exit 1
 }
 
-if [[ $# -eq 0 ]]; then
-  echo "There are no arguments passed to the command."
-  echo ""
-  set_warden_up
-  exit 1
-fi
-
+## prints our help message for short arguments only
 function print_single_slash_help_message {
   error_message
   echo -e "$@"
@@ -86,6 +104,14 @@ function print_single_slash_help_message {
   exit 1
 }
 
+## check to see if there are no arguments provided to the warden bootstrap command, if there are none - start env and exit
+if [[ $# -eq 0 ]]; then
+  echo "There are no arguments passed to the command."
+  echo ""
+  set_warden_up
+  exit 1
+fi
+
 ## check is short or long argument parsing
 if [[ ! ${SINGLE_SLASH_ARGUMENTS} && "$1" = --* ]]; then
   SINGLE_SLASH_ARGUMENTS=0
@@ -97,6 +123,7 @@ if [[ ! ${SINGLE_SLASH_ARGUMENTS} && "$1" = -* ]]; then
   ## echo "SINGLE quote"
 fi
 
+## locates .env file (.env file needs to be present, can not use ones under env folder)
 WARDEN_ENV_PATH="$(locateEnvPath)" || exit $?
 
 ## searching trough argument list for a meta version argument
@@ -117,7 +144,7 @@ if [[ ${MULTI_ENV} == 1 && $META_VERSION ]]; then
   ENV_FOLDER_NAME=${META_VERSION%-*}
 
   if [ -f "./env/${ENV_FOLDER_NAME}/.env" ]; then
-    echo 'Loading latest system requirements for meta version' ${META_VERSION} "from ./env/${ENV_FOLDER_NAME}/.env"
+    echo "Loading latest system requirements for meta version ${META_VERSION} from ./env/${ENV_FOLDER_NAME}/.env"
     :: "cp .env file to env/${ENV_FOLDER_NAME}/backup"
     cp .env ./env/backup/.env
 
@@ -125,8 +152,8 @@ if [[ ${MULTI_ENV} == 1 && $META_VERSION ]]; then
     cp ./env/${ENV_FOLDER_NAME}/.env .env
     loadEnvConfig "./env/${ENV_FOLDER_NAME}" || exit $?
   else
-    echo 'There is no .env file under: env/'${ENV_FOLDER_NAME}'/.env'
-    echo 'Please create the folder and new .env file with right parameters.'
+    echo "There is no .env file under: env/${ENV_FOLDER_NAME}/.env"
+    echo "Please create the folder and new .env file with right parameters."
     exit 1
   fi
 else
@@ -139,17 +166,21 @@ assertDockerRunning
 ## change into the project directory
 cd "${WARDEN_ENV_PATH}"
 
+## sets default warden configurations
 WARDEN_WEB_ROOT="$(echo "${WARDEN_WEB_ROOT:-/}" | sed 's#^/#./#')"
 REQUIRED_FILES=("${WARDEN_WEB_ROOT}/auth.json")
 DB_DUMP="${DB_DUMP:-./backfill/magento-db.sql.gz}"
 FULL_DOMAIN="${TRAEFIK_DOMAIN}"
+
+## if there is subdomain, append it before domain so it can work both with and without subdomain
 if [[ ${TRAEFIK_SUBDOMAIN} ]]; then
   FULL_DOMAIN="${TRAEFIK_SUBDOMAIN}.${TRAEFIK_DOMAIN}"
 fi
+
 URL_FRONT="${HTTP_PROTOCOL}://${FULL_DOMAIN}/"
 URL_ADMIN="${HTTP_PROTOCOL}://${FULL_DOMAIN}/${ADMIN_PATH}/"
 
-## 2 = xdg-open, 1 = sensible-browser, 0 = off $traefik_url &>/dev/null
+## open url in browser, 2 = xdg-open, 1 = sensible-browser, 0 = off $traefik_url &>/dev/null
 function open_url_in_browser {
   if [[ ${OPEN_IN_BROWSER} == 2 ]]; then
     :: Opening URL in browser
@@ -162,6 +193,7 @@ function open_url_in_browser {
   fi
 }
 
+## check to see if it there is aliases file in webroot, which would mean that magento has already been installed.
 if [[ ${USE_BASH_ALIASES} == 1 && -f "${WARDEN_WEB_ROOT}/aliases" ]]; then
   printf "You already have Magento2 instance installed.\n"
   open_url_in_browser
@@ -244,6 +276,8 @@ if [[ ${SINGLE_SLASH_ARGUMENTS} == 1 ]]; then
     exit 1
   fi
 
+  ## go trough all arguments that are not stating with single slash (-), being either meta version, meta package or db sql.gz file
+  ## sets the right argument to the right tag, mostly with the help of regex for sql.gz, magento meta versions and one of allowed meta packages
   COUNTER=0
   while test $# -gt 0
   do
@@ -255,6 +289,7 @@ if [[ ${SINGLE_SLASH_ARGUMENTS} == 1 ]]; then
 
     ## echo "Searching for: $1"
 
+    ## if found all break from loop
     if [[ $FOUND_SQL_FILENAME != 0 && $FOUND_META_VERSION != 0 && $FOUND_META_PACKAGE != 0 ]]; then
       ## echo "Found all"
       break;
@@ -289,7 +324,7 @@ if [[ ${SINGLE_SLASH_ARGUMENTS} == 1 ]]; then
     fi
 
     if [[ COUNTER -ge 10 ]]; then
-      print_single_slash_help_message 'Force break out of while loop.'
+      print_single_slash_help_message "Force break out of while loop."
       exit -1
     fi
 
@@ -297,8 +332,9 @@ if [[ ${SINGLE_SLASH_ARGUMENTS} == 1 ]]; then
     shift
   done
 
+  ## if it didn't fine something but was searching for it, display error and exit
   if [[ $FOUND_META_PACKAGE == 0 ]]; then
-    echo 'Did not find meta package.'
+    echo "Did not find meta package."
     print_single_slash_help_message  $META_PACKAGE_ERROR_MESSAGE
     exit 1
   fi
@@ -315,7 +351,7 @@ if [[ ${SINGLE_SLASH_ARGUMENTS} == 1 ]]; then
 fi
 
 ## argument parsing
-## parse arguments
+## parse long arguments two slashes (--)
 while (( ${SINGLE_SLASH_ARGUMENTS} != 1 && "$#" )); do
     case "$1" in
         --clean-install)
@@ -364,7 +400,7 @@ while (( ${SINGLE_SLASH_ARGUMENTS} != 1 && "$#" )); do
     esac
 done
 
-## check for etc directory (could be deleted)
+## check for etc directory (could be deleted or missing)
 if [ ! -d "${WARDEN_WEB_ROOT}/app/etc" ]; then
   mkdir -p "${WARDEN_WEB_ROOT}/app/etc"
 fi
@@ -524,8 +560,8 @@ elif [[ ${CLEAN_INSTALL} ]]; then
     --db-user=magento \
     --db-password=magento"
 
-## patching versions that are known to throw an error on install (https://github.com/wardenenv/warden-env-magento2/issues/16)
-## (https://patch-diff.githubusercontent.com/raw/magento/magento2-page-builder/pull/778.patch)
+  ## patching versions that are known to throw an error on install (https://github.com/wardenenv/warden-env-magento2/issues/16)
+  ## (https://patch-diff.githubusercontent.com/raw/magento/magento2-page-builder/pull/778.patch)
   if [[ ${META_VERSION} ]]; then
     if test $(version "${META_VERSION}") -eq "$(version 2.4.5)"; then
       APPLY_PATCHES=1
@@ -575,6 +611,13 @@ if [[ ! ${CLEAN_INSTALL} ]]; then
 
 fi
 
+## check if default admin pass is configured
+if [[ ${ADMIN_PASS} == "" ]]; then
+  :: There is no Admin pass defined, using random one
+  PRINT_ADMIN_CREDENTIALS=1
+  ADMIN_PASS=$(warden env exec -T php-fpm pwgen -n1 16)
+fi
+
 :: Creating admin user
 warden env exec -T php-fpm bin/magento admin:user:create \
     --admin-password="${ADMIN_PASS}" \
@@ -583,6 +626,7 @@ warden env exec -T php-fpm bin/magento admin:user:create \
     --admin-lastname="Admin" \
     --admin-email="${ADMIN_USER}@example.com"
 
+## check if two factor authentication is enabled and set it up
 OTPAUTH_QRI=
 if [[ ${USE_TFA} == 1 ]]; then
   if test $(version $(warden env exec -T php-fpm bin/magento -V | awk '{print $3}')) -ge $(version 2.4.0); then
@@ -607,6 +651,7 @@ if [[ ${USE_TFA} == 1 ]]; then
   fi
 fi
 
+## check if two factor authentication is disabled, so it means that tfa module can be disabled as well
 if [[ ${USE_TFA} == 0 ]]; then
   :: Disabling Two Factor Auth
   warden env exec -T php-fpm bin/magento module:disable Magento_TwoFactorAuth
@@ -626,9 +671,10 @@ warden env exec -T php-fpm bin/magento indexer:reindex
 warden env exec -T php-fpm bin/magento cache:flush
 warden env exec -T php-fpm bin/magento cache:disable block_html full_page
 
+## call function to see if it can open magento url in browser
 open_url_in_browser
 
-## aliases in ~/.bashrc file on warden
+## aliases in ~/.bashrc file on warden (defined under patches/aliases file)
 if [[ ${USE_BASH_ALIASES} == 1 && ! -f "${WARDEN_WEB_ROOT}/aliases" ]]; then
   :: Setting up ~/.bashrc aliases
   cp ./patches/aliases "${WARDEN_WEB_ROOT}/"
@@ -637,61 +683,63 @@ fi
 
 :: Initialization complete
 function print_install_info {
-    FILL=$(printf "%0.s-" {1..128})
-    LONGEST_STRING_FOR_C1="AdminURL"
-    let "C2_LEN=${#URL_ADMIN}>${#ADMIN_PASS}?${#URL_ADMIN}:${#ADMIN_PASS}"
-    let "C2_LEN=${C2_LEN}>${#OTPAUTH_QRI}?${C2_LEN}:${#OTPAUTH_QRI}"
+  FILL=$(printf "%0.s-" {1..128})
+  LONGEST_STRING_FOR_C1="AdminURL"
+  let "C2_LEN=${#URL_ADMIN}>${#ADMIN_PASS}?${#URL_ADMIN}:${#ADMIN_PASS}"
+  let "C2_LEN=${C2_LEN}>${#OTPAUTH_QRI}?${C2_LEN}:${#OTPAUTH_QRI}"
 
-    if [[ ${PRINT_MORE_VERBOSE_ON_INSTALL} == 1 ]]; then
-      WARDEN_URL_DOMAIN=".warden.test"
-      RABBITMQ_URL="${HTTP_PROTOCOL}://rabbitmq.${TRAEFIK_DOMAIN}/"
-      ELASTICSEARCH_URL="${HTTP_PROTOCOL}://elasticsearch.${TRAEFIK_DOMAIN}/"
-      TRAEFIK_URL="${HTTP_PROTOCOL}://traefik${WARDEN_URL_DOMAIN}/"
-      PORTAINER_URL="${HTTP_PROTOCOL}://portainer${WARDEN_URL_DOMAIN}/"
-      DNSMASQ_URL="${HTTP_PROTOCOL}://dnsmasq${WARDEN_URL_DOMAIN}/"
-      MAILHOG_URL="${HTTP_PROTOCOL}://mailhog${WARDEN_URL_DOMAIN}/"
-      LONGEST_STRING_FOR_C1="Elasticsearch"
-      let "C2_LEN=${C2_LEN}>${#ELASTICSEARCH_URL}?${C2_LEN}:${#ELASTICSEARCH_URL}"
+  if [[ ${PRINT_MORE_VERBOSE_ON_INSTALL} == 1 ]]; then
+    WARDEN_URL_DOMAIN=".warden.test"
+    RABBITMQ_URL="${HTTP_PROTOCOL}://rabbitmq.${TRAEFIK_DOMAIN}/"
+    ELASTICSEARCH_URL="${HTTP_PROTOCOL}://elasticsearch.${TRAEFIK_DOMAIN}/"
+    TRAEFIK_URL="${HTTP_PROTOCOL}://traefik${WARDEN_URL_DOMAIN}/"
+    PORTAINER_URL="${HTTP_PROTOCOL}://portainer${WARDEN_URL_DOMAIN}/"
+    DNSMASQ_URL="${HTTP_PROTOCOL}://dnsmasq${WARDEN_URL_DOMAIN}/"
+    MAILHOG_URL="${HTTP_PROTOCOL}://mailhog${WARDEN_URL_DOMAIN}/"
+    LONGEST_STRING_FOR_C1="Elasticsearch"
+    let "C2_LEN=${C2_LEN}>${#ELASTICSEARCH_URL}?${C2_LEN}:${#ELASTICSEARCH_URL}"
+  fi
+
+  C1_LEN=${#LONGEST_STRING_FOR_C1}
+
+  ## note: in CentOS bash .* isn't supported (is on Darwin), but *.* is more cross-platform
+  printf "+ %*.*s + %*.*s + \n" 0 $C1_LEN $FILL 0 $C2_LEN $FILL
+  printf "+ %-*s + %-*s + \n" $C1_LEN FrontURL $C2_LEN "$URL_FRONT"
+  printf "+ %*.*s + %*.*s + \n" 0 $C1_LEN $FILL 0 $C2_LEN $FILL
+  printf "+ %-*s + %-*s + \n" $C1_LEN AdminURL $C2_LEN "$URL_ADMIN"
+  printf "+ %*.*s + %*.*s + \n" 0 $C1_LEN $FILL 0 $C2_LEN $FILL
+
+  if [[ ${OTPAUTH_QRI} ]]; then
+    printf "+ %-*s + %-*s + \n" $C1_LEN AdminOTP $C2_LEN "$OTPAUTH_QRI"
+    printf "+ %*.*s + %*.*s + \n" 0 $C1_LEN $FILL 0 $C2_LEN $FILL
+  fi
+
+  if [[ ${PRINT_ADMIN_CREDENTIALS} ]]; then
+    printf "+ %-*s + %-*s + \n" $C1_LEN Username $C2_LEN "$ADMIN_USER"
+    printf "+ %*.*s + %*.*s + \n" 0 $C1_LEN $FILL 0 $C2_LEN $FILL
+    printf "+ %-*s + %-*s + \n" $C1_LEN Password $C2_LEN "$ADMIN_PASS"
+    printf "+ %*.*s + %*.*s + \n" 0 $C1_LEN $FILL 0 $C2_LEN $FILL
+  fi
+
+  if [[ ${PRINT_MORE_VERBOSE_ON_INSTALL} == 1 ]]; then
+    if [[ ${WARDEN_RABBITMQ} == 1 ]]; then
+      printf "+ %-*s + %-*s + \n" $C1_LEN RabbitMQ $C2_LEN "$RABBITMQ_URL"
+      printf "+ %*.*s + %*.*s + \n" 0 $C1_LEN $FILL 0 $C2_LEN $FILL
     fi
 
-    C1_LEN=${#LONGEST_STRING_FOR_C1}
-
-    # note: in CentOS bash .* isn't supported (is on Darwin), but *.* is more cross-platform
-    printf "+ %*.*s + %*.*s + \n" 0 $C1_LEN $FILL 0 $C2_LEN $FILL
-    printf "+ %-*s + %-*s + \n" $C1_LEN FrontURL $C2_LEN "$URL_FRONT"
-    printf "+ %*.*s + %*.*s + \n" 0 $C1_LEN $FILL 0 $C2_LEN $FILL
-    printf "+ %-*s + %-*s + \n" $C1_LEN AdminURL $C2_LEN "$URL_ADMIN"
-    printf "+ %*.*s + %*.*s + \n" 0 $C1_LEN $FILL 0 $C2_LEN $FILL
-
-    if [[ ${OTPAUTH_QRI} ]]; then
-      printf "+ %-*s + %-*s + \n" $C1_LEN AdminOTP $C2_LEN "$OTPAUTH_QRI"
+    if [[ ${WARDEN_ELASTICSEARCH} == 1 ]]; then
+      printf "+ %-*s + %-*s + \n" $C1_LEN Elasticsearch $C2_LEN "$ELASTICSEARCH_URL"
       printf "+ %*.*s + %*.*s + \n" 0 $C1_LEN $FILL 0 $C2_LEN $FILL
     fi
 
-    if [[ ${PRINT_MORE_VERBOSE_ON_INSTALL} == 1 ]]; then
-      printf "+ %-*s + %-*s + \n" $C1_LEN Username $C2_LEN "$ADMIN_USER"
-      printf "+ %*.*s + %*.*s + \n" 0 $C1_LEN $FILL 0 $C2_LEN $FILL
-      printf "+ %-*s + %-*s + \n" $C1_LEN Password $C2_LEN "$ADMIN_PASS"
-      printf "+ %*.*s + %*.*s + \n" 0 $C1_LEN $FILL 0 $C2_LEN $FILL
-
-      if [[ ${WARDEN_RABBITMQ} == 1 ]]; then
-        printf "+ %-*s + %-*s + \n" $C1_LEN RabbitMQ $C2_LEN "$RABBITMQ_URL"
-        printf "+ %*.*s + %*.*s + \n" 0 $C1_LEN $FILL 0 $C2_LEN $FILL
-      fi
-
-      if [[ ${WARDEN_ELASTICSEARCH} == 1 ]]; then
-        printf "+ %-*s + %-*s + \n" $C1_LEN Elasticsearch $C2_LEN "$ELASTICSEARCH_URL"
-        printf "+ %*.*s + %*.*s + \n" 0 $C1_LEN $FILL 0 $C2_LEN $FILL
-      fi
-
-      printf "+ %-*s + %-*s + \n" $C1_LEN Traefik $C2_LEN "$TRAEFIK_URL"
-      printf "+ %*.*s + %*.*s + \n" 0 $C1_LEN $FILL 0 $C2_LEN $FILL
-      printf "+ %-*s + %-*s + \n" $C1_LEN Portainer $C2_LEN "$PORTAINER_URL"
-      printf "+ %*.*s + %*.*s + \n" 0 $C1_LEN $FILL 0 $C2_LEN $FILL
-      printf "+ %-*s + %-*s + \n" $C1_LEN Dnsmasq $C2_LEN "$DNSMASQ_URL"
-      printf "+ %*.*s + %*.*s + \n" 0 $C1_LEN $FILL 0 $C2_LEN $FILL
-      printf "+ %-*s + %-*s + \n" $C1_LEN MailHog $C2_LEN "$MAILHOG_URL"
-      printf "+ %*.*s + %*.*s + \n" 0 $C1_LEN $FILL 0 $C2_LEN $FILL
-    fi
+    printf "+ %-*s + %-*s + \n" $C1_LEN Traefik $C2_LEN "$TRAEFIK_URL"
+    printf "+ %*.*s + %*.*s + \n" 0 $C1_LEN $FILL 0 $C2_LEN $FILL
+    printf "+ %-*s + %-*s + \n" $C1_LEN Portainer $C2_LEN "$PORTAINER_URL"
+    printf "+ %*.*s + %*.*s + \n" 0 $C1_LEN $FILL 0 $C2_LEN $FILL
+    printf "+ %-*s + %-*s + \n" $C1_LEN Dnsmasq $C2_LEN "$DNSMASQ_URL"
+    printf "+ %*.*s + %*.*s + \n" 0 $C1_LEN $FILL 0 $C2_LEN $FILL
+    printf "+ %-*s + %-*s + \n" $C1_LEN MailHog $C2_LEN "$MAILHOG_URL"
+    printf "+ %*.*s + %*.*s + \n" 0 $C1_LEN $FILL 0 $C2_LEN $FILL
+  fi
 }
 print_install_info

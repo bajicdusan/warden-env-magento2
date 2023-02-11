@@ -18,7 +18,7 @@ return [
         'default' => [
             'design' => [
                 'head' => [
-                    'demonotice' => '1'
+                    'demonotice' => '0'
                 ],
                 'footer' => [
                     'absolute_footer' => '<script src="/livereload.js?port=443"></script>'

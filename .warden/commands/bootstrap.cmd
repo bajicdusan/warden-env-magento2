@@ -193,20 +193,13 @@ function open_url_in_browser {
   fi
 }
 
-## check to see if it there is aliases file in webroot, which would mean that magento has already been installed.
-if [[ ${USE_BASH_ALIASES} == 1 && -f "${WARDEN_WEB_ROOT}/aliases" ]]; then
-  printf "You already have Magento2 instance installed.\n"
-  open_url_in_browser
-  exit 1
-fi
-
 ## short argument parsing
+FOUND_SQL_FILENAME=
 if [[ ${SINGLE_SLASH_ARGUMENTS} == 1 ]]; then
   EXPECTED_ARGS=1
   ALLOWED_META_PACKAGES=(magento/project-community-edition magento/project-enterprise-edition)
   FOUND_META_PACKAGE=
   FOUND_META_VERSION=
-  FOUND_SQL_FILENAME=
 
   while read -n1 character; do
 
@@ -383,6 +376,7 @@ while (( ${SINGLE_SLASH_ARGUMENTS} != 1 && "$#" )); do
         --db-dump)
             shift
             DB_DUMP="$1"
+            FOUND_SQL_FILENAME=$1
             shift
             ;;
         --no-pull)
@@ -399,6 +393,13 @@ while (( ${SINGLE_SLASH_ARGUMENTS} != 1 && "$#" )); do
             ;;
     esac
 done
+
+## check to see if it there is aliases file in webroot, which would mean that magento has already been installed.
+if [[ ${FOUND_SQL_FILENAME} == "" && ${USE_BASH_ALIASES} == 1 && -f "${WARDEN_WEB_ROOT}/aliases" ]]; then
+  printf "You already have Magento2 instance installed.\n"
+  open_url_in_browser
+  exit 1
+fi
 
 ## check for etc directory (could be deleted or missing)
 if [ ! -d "${WARDEN_WEB_ROOT}/app/etc" ]; then

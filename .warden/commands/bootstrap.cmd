@@ -35,10 +35,12 @@ USE_TFA=0
 HTTP_PROTOCOL="https"
 ## prints out more urls on install (warden env urls and warden svc urls)
 PRINT_MORE_VERBOSE_ON_INSTALL=1
-## if you have custom aliases that you like to to in warden shell as well (specify them under: patches/aliases file)
+## if you have custom aliases that you like to to in warden shell as well (specify them under: backfill/patches/aliases file)
 USE_BASH_ALIASES=1
 ## if magento store url should be opened on install (2 = xdg-open, 1 = sensible-browser, 0 = off -> $traefik_url &>/dev/null)
 OPEN_IN_BROWSER=0
+## if the install process should remove app/etc/env.php.warden.php and app/etc/env.php.init.php
+CLEAN_FILES_ON_INSTALL=1
 
 ## error messages:
 META_PACKAGE_ERROR_MESSAGE="Allowed magento2 metapackages: magento/project-community-edition, magento/project-enterprise-edition"
@@ -395,7 +397,7 @@ while (( ${SINGLE_SLASH_ARGUMENTS} != 1 && "$#" )); do
 done
 
 ## check to see if it there is aliases file in webroot, which would mean that magento has already been installed.
-if [[ ${FOUND_SQL_FILENAME} == "" && ${USE_BASH_ALIASES} == 1 && -f "${WARDEN_WEB_ROOT}/aliases" ]]; then
+if [[ ${FOUND_SQL_FILENAME} == "" && ${USE_BASH_ALIASES} == 1 && -f "${WARDEN_WEB_ROOT}/.project/aliases" ]]; then
   printf "You already have Magento2 instance installed.\n"
   open_url_in_browser
   exit 1
@@ -406,9 +408,9 @@ if [ ! -d "${WARDEN_WEB_ROOT}/app/etc" ]; then
   mkdir -p "${WARDEN_WEB_ROOT}/app/etc"
 fi
 
-## check for env.php.init.php file if not found copy one from patches folder
+## check for env.php.init.php file if not found copy one from backfill/config/files folder
 if [ ! -f "${WARDEN_WEB_ROOT}/app/etc/env.php.init.php" ]; then
-  cp ./patches/files/env.php.init.php "${WARDEN_WEB_ROOT}/app/etc/"
+  cp ./backfill/config/files/env.php.init.php "${WARDEN_WEB_ROOT}/app/etc/"
 fi
 
 ## if no composer.json is present in web root imply --clean-install flag when not specified explicitly
@@ -577,7 +579,7 @@ elif [[ ${CLEAN_INSTALL} ]]; then
 
   if [[ ${APPLY_PATCHES} == 1 ]]; then
     :: Patching Magento module-page-builder
-    patch ${WARDEN_WEB_ROOT}/vendor/magento/module-page-builder/Plugin/Catalog/Model/Product/Attribute/RepositoryPlugin.php ./patches/778.patch
+    patch ${WARDEN_WEB_ROOT}/vendor/magento/module-page-builder/Plugin/Catalog/Model/Product/Attribute/RepositoryPlugin.php ./backfill/patches/778.patch
   fi
 
   :: Installing application
@@ -675,15 +677,28 @@ warden env exec -T php-fpm bin/magento cache:disable block_html full_page
 ## call function to see if it can open magento url in browser
 open_url_in_browser
 
-## aliases in ~/.bashrc file on warden (defined under patches/aliases file)
+## aliases in ~/.bashrc file on warden (defined under backfill/config/aliases file)
 if [[ ${USE_BASH_ALIASES} == 1 && ! -f "${WARDEN_WEB_ROOT}/aliases" ]]; then
   :: Setting up ~/.bashrc aliases
-  cp ./patches/aliases "${WARDEN_WEB_ROOT}/"
-  warden env exec -T php-fpm bash -c "test -e ~/.bash_aliases_updated_flag_file && echo 'File: bashrc has been overriden.' || cp /var/www/html/aliases ~/.bash_aliases_updated_flag_file && cat ~/.bash_aliases_updated_flag_file >> ~/.bashrc && source ~/.bashrc"
+  ## check for webroot/.project directory
+  if [ ! -d "${WARDEN_WEB_ROOT}/.project" ]; then
+    mkdir -p "${WARDEN_WEB_ROOT}/.project"
+  fi
+
+  cp ./backfill/config/aliases "${WARDEN_WEB_ROOT}/.project/"
+  warden env exec -T php-fpm bash -c "test -e ~/.bash_aliases_updated_flag_file && echo 'File: bashrc has been overriden.' || cp /var/www/html/.project/aliases ~/.bash_aliases_updated_flag_file && cat ~/.bash_aliases_updated_flag_file >> ~/.bashrc && source ~/.bashrc"
+fi
+
+## remove extra env.php files
+if [[ ${CLEAN_FILES_ON_INSTALL} == 1 ]]; then
+  :: Cleaning extra env.php files
+  warden env exec -T php-fpm rm /var/www/html/app/etc/env.php.warden.php
+  warden env exec -T php-fpm rm /var/www/html/app/etc/env.php.init.php
 fi
 
 :: Initialization complete
 function print_install_info {
+  echo ""
   FILL=$(printf "%0.s-" {1..128})
   LONGEST_STRING_FOR_C1="AdminURL"
   let "C2_LEN=${#URL_ADMIN}>${#ADMIN_PASS}?${#URL_ADMIN}:${#ADMIN_PASS}"

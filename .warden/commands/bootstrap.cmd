@@ -39,8 +39,6 @@ PRINT_MORE_VERBOSE_ON_INSTALL=1
 USE_BASH_ALIASES=1
 ## if magento store url should be opened on install (2 = xdg-open, 1 = sensible-browser, 0 = off -> $traefik_url &>/dev/null)
 OPEN_IN_BROWSER=0
-## if the install process should remove app/etc/env.php.warden.php and app/etc/env.php.init.php
-CLEAN_FILES_ON_INSTALL=1
 
 ## error messages:
 META_PACKAGE_ERROR_MESSAGE="Allowed magento2 metapackages: magento/project-community-edition, magento/project-enterprise-edition"
@@ -687,13 +685,6 @@ if [[ ${USE_BASH_ALIASES} == 1 && ! -f "${WARDEN_WEB_ROOT}/aliases" ]]; then
 
   cp ./backfill/config/aliases "${WARDEN_WEB_ROOT}/.project/"
   warden env exec -T php-fpm bash -c "test -e ~/.bash_aliases_updated_flag_file && echo 'File: bashrc has been overriden.' || cp /var/www/html/.project/aliases ~/.bash_aliases_updated_flag_file && cat ~/.bash_aliases_updated_flag_file >> ~/.bashrc && source ~/.bashrc"
-fi
-
-## remove extra env.php files
-if [[ ${CLEAN_FILES_ON_INSTALL} == 1 ]]; then
-  :: Cleaning extra env.php files
-  warden env exec -T php-fpm rm /var/www/html/app/etc/env.php.warden.php
-  warden env exec -T php-fpm rm /var/www/html/app/etc/env.php.init.php
 fi
 
 :: Initialization complete

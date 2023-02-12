@@ -677,7 +677,7 @@ open_url_in_browser
 
 ## aliases in ~/.bashrc file on warden (defined under backfill/config/aliases file)
 if [[ ${USE_BASH_ALIASES} == 1 && ! -f "${WARDEN_WEB_ROOT}/aliases" ]]; then
-  :: Setting up ~/.bashrc aliases
+  :: Setting up /home/www-data/.bashrc aliases inside warden shell
   ## check for webroot/.project directory
   if [ ! -d "${WARDEN_WEB_ROOT}/.project" ]; then
     mkdir -p "${WARDEN_WEB_ROOT}/.project"

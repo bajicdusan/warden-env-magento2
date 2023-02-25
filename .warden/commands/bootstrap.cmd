@@ -431,6 +431,7 @@ if [[ $OSTYPE =~ ^darwin ]] && ! which mutagen 2>/dev/null >/dev/null && which b
     brew install havoc-io/mutagen/mutagen
 fi
 
+USE_CAT_DEPENDENCY=0
 ## check for presence of host machine dependencies
 for DEP_NAME in warden mutagen docker-compose pv; do
   if [[ "${DEP_NAME}" = "mutagen" ]] && [[ ! $OSTYPE =~ ^darwin ]]; then
@@ -438,6 +439,12 @@ for DEP_NAME in warden mutagen docker-compose pv; do
   fi
 
   if ! which "${DEP_NAME}" 2>/dev/null >/dev/null; then
+    if [[ "${DEP_NAME}" = "pv" ]]; then
+      echo "Command '${DEP_NAME}' not found. Defaulting the usage to 'cat' command."
+      USE_CAT_DEPENDENCY=1
+      continue
+    fi
+
     error "Command '${DEP_NAME}' not found. Please install."
     INIT_ERROR=1
   fi
@@ -517,7 +524,13 @@ warden env exec -T php-fpm composer install
 if [[ ${DB_IMPORT} ]]; then
   :: Importing database
   warden db connect -e 'drop database magento; create database magento;'
-  pv "${DB_DUMP}" | gunzip -c | warden db import
+
+  if [[ ${USE_CAT_DEPENDENCY} == 1 ]]; then
+    cat "${DB_DUMP}" | gunzip -c | warden db import
+  else
+    pv "${DB_DUMP}" | gunzip -c | warden db import
+  fi
+
 elif [[ ${CLEAN_INSTALL} ]]; then
   
   INSTALL_FLAGS=""

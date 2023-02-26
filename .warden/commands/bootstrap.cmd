@@ -509,7 +509,7 @@ warden env up -d
 warden shell -c "while ! nc -z db 3306 </dev/null; do sleep 2; done"
 
 if [[ ${CLEAN_INSTALL} ]] && [[ ! -f "${WARDEN_WEB_ROOT}/composer.json" ]]; then
-  :: Installing meta-package
+  :: "Installing meta-package: '${META_PACKAGE}', Magento version: '${META_VERSION}'"
   warden env exec -T php-fpm composer create-project -q --no-interaction --prefer-dist --no-install \
       --repository-url=https://repo.magento.com/ "${META_PACKAGE}" /tmp/create-project "${META_VERSION}"
   warden env exec -T php-fpm rsync -a /tmp/create-project/ /var/www/html/
@@ -689,7 +689,7 @@ warden env exec -T php-fpm bin/magento cache:disable block_html full_page
 open_url_in_browser
 
 ## aliases in ~/.bashrc file on warden (defined under backfill/config/aliases file)
-if [[ ${USE_BASH_ALIASES} == 1 && ! -f "${WARDEN_WEB_ROOT}/aliases" ]]; then
+if [[ ${USE_BASH_ALIASES} == 1 && ! -f "${WARDEN_WEB_ROOT}/.project/aliases" ]]; then
   :: Setting up /home/www-data/.bashrc aliases inside warden shell
   ## check for webroot/.project directory
   if [ ! -d "${WARDEN_WEB_ROOT}/.project" ]; then

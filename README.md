@@ -73,29 +73,29 @@ To completely destroy the local environment we just created, run `warden env dow
     - Figure out what arguments are missing or if there are too many arguments and inform the user,
     - Automatic parsing of the arguments (.tar.gz, Magento version regex and allowed meta packages),
 
-- Added more descriptive error messages.
-    - Added ascii art for error messages to be easily detected,
-    - Added descritive text that will describe the issue or display help message,
+- Added more descriptive error messages:
+    - Added ASCII art for error messages to be easily detected,
+    - Added descriptive text that will describe the issue or display a help message,
     - Added help messages when it detects unknown argument,
 
 - Added support for multi environments - defined under env folder.
 If specified Magento version with (warden bootstrap -cv 2.4.5-p1), it will copy over existing .env file to the env/backup/.env and it will override .env file for env/2.4.5/.env,
 
-- Added default setting when command is parsed without arguments to start up warden environment and services,
+- Added default setting when the command is parsed without arguments to start up warden environment and services,
 
-- Added support to only have domain without subdomain. It will automatically resolve if there is subdomain - appends it before domain so it can work both with and without subdomain,
+- Added support to only have a domain without the subdomain. It will automatically resolve if there is subdomain - appends it before domain so it can work both with and without the subdomain,
 
-- Added configuration for admin path and default admin username.,
+- Added configuration for admin path and default admin username,
 
-- Added support to open URL in the browser (default to off). Supports following configurations: 2 = xdg-open, 1 = sensible-browser, 0 = off,
+- Added support to open the URL in the browser (default to off). Supports the following configurations: 2 = xdg-open, 1 = sensible-browser, 0 = off,
 
 - Added support to have no default webroot folder (automatic creation of the webroot/app/etc/env.php.init.php along with folders),
 
-- Added support to have patches, currently needed to ensure installation will go trough in one go (backfill/patches/778.patch),
+- Added support to have patches, currently needed to ensure the installation will go trough in one go (backfill/patches/778.patch),
 
-- Added support to use defined admin password, if none is provided generates random one,
+- Added support to use pre-defined admin password, if none is provided generates random one,
 
-- Added support to configure Two Factor Authentication, if disabled it will disable module as well,
+- Added support to configure Two Factor Authentication, if disabled, it will disable module as well,
 
 - Added support to to install sample data (-w argument or --with-sample-data),
 
@@ -103,6 +103,6 @@ If specified Magento version with (warden bootstrap -cv 2.4.5-p1), it will copy 
 
 - Added configuration to enable/disable printing out of the Admin User/Credentials (it will display them if the password is random),
 
-- Added configuration to display more services URL's when printing out install informations,
+- Added configuration to display more services URL's when printing out install information,
 
-- Added support to use cat dependancy instead of pv,
+- Added support to use 'cat' command dependency instead of the 'pv',

@@ -99,7 +99,7 @@ If specified Magento version with (warden bootstrap -cv 2.4.5-p1), it will copy 
 
 - Added support to to install sample data (-w argument or --with-sample-data),
 
-- Added support to have aliases in ~/.bashrc file on warden (defined under backfill/config/aliases file),
+- Added support to have aliases in ~/.bashrc file on warden (defined under .warden/php-fpm/.bashrc file),
 
 - Added configuration to enable/disable printing out of the Admin User/Credentials (it will display them if the password is random),
 

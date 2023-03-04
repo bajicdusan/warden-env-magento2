@@ -35,8 +35,6 @@ USE_TFA=0
 HTTP_PROTOCOL="https"
 ## prints out more urls on install (warden env urls and warden svc urls)
 PRINT_MORE_VERBOSE_ON_INSTALL=1
-## if you have custom aliases that you like to to in warden shell as well (specify them under: backfill/patches/aliases file)
-USE_BASH_ALIASES=1
 ## if magento store url should be opened on install (2 = xdg-open, 1 = sensible-browser, 0 = off -> $traefik_url &>/dev/null)
 OPEN_IN_BROWSER=0
 
@@ -394,8 +392,8 @@ while (( ${SINGLE_SLASH_ARGUMENTS} != 1 && "$#" )); do
     esac
 done
 
-## check to see if it there is aliases file in webroot, which would mean that magento has already been installed.
-if [[ ${FOUND_SQL_FILENAME} == "" && ${USE_BASH_ALIASES} == 1 && -f "${WARDEN_WEB_ROOT}/.project/aliases" ]]; then
+## check to see if it there is app/code folder in webroot, which would mean that magento has already been installed.
+if [[ ${FOUND_SQL_FILENAME} == "" && -d "${WARDEN_WEB_ROOT}/app/code" ]]; then
   printf "You already have Magento2 instance installed.\n"
   open_url_in_browser
   exit 1
@@ -509,7 +507,7 @@ warden env up -d
 warden shell -c "while ! nc -z db 3306 </dev/null; do sleep 2; done"
 
 if [[ ${CLEAN_INSTALL} ]] && [[ ! -f "${WARDEN_WEB_ROOT}/composer.json" ]]; then
-  :: Installing meta-package
+  :: "Installing meta-package: '${META_PACKAGE}', Magento version: '${META_VERSION}'"
   warden env exec -T php-fpm composer create-project -q --no-interaction --prefer-dist --no-install \
       --repository-url=https://repo.magento.com/ "${META_PACKAGE}" /tmp/create-project "${META_VERSION}"
   warden env exec -T php-fpm rsync -a /tmp/create-project/ /var/www/html/
@@ -688,16 +686,10 @@ warden env exec -T php-fpm bin/magento cache:disable block_html full_page
 ## call function to see if it can open magento url in browser
 open_url_in_browser
 
-## aliases in ~/.bashrc file on warden (defined under backfill/config/aliases file)
-if [[ ${USE_BASH_ALIASES} == 1 && ! -f "${WARDEN_WEB_ROOT}/aliases" ]]; then
-  :: Setting up /home/www-data/.bashrc aliases inside warden shell
-  ## check for webroot/.project directory
-  if [ ! -d "${WARDEN_WEB_ROOT}/.project" ]; then
-    mkdir -p "${WARDEN_WEB_ROOT}/.project"
-  fi
-
-  cp ./backfill/config/aliases "${WARDEN_WEB_ROOT}/.project/"
-  warden env exec -T php-fpm bash -c "test -e ~/.bash_aliases_updated_flag_file && echo 'File: bashrc has been overriden.' || cp /var/www/html/.project/aliases ~/.bash_aliases_updated_flag_file && cat ~/.bash_aliases_updated_flag_file >> ~/.bashrc && source ~/.bashrc"
+## create app/code folder which would indicate that the project has been installed and ready for development
+if [[ ! -d "${WARDEN_WEB_ROOT}/app/code" ]]; then
+  :: Creating app/code folder
+  mkdir -p "${WARDEN_WEB_ROOT}/app/code"
 fi
 
 :: Initialization complete

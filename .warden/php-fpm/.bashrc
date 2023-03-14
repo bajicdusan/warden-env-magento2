@@ -16,6 +16,10 @@ export PATH
 # export SYSTEMD_PAGER=
 
 # User specific aliases and functions	  
+
+# custom command added as composer gave troubles with PATH
+export PATH="$PATH:$HOME/.composer/vendor/bin"
+
 alias cls='clear'
 alias www='cd /var/www/html'
 

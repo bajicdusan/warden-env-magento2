@@ -640,8 +640,9 @@ warden env exec -T php-fpm bin/magento admin:user:create \
 
 ## check if two factor authentication is enabled and set it up
 OTPAUTH_QRI=
+MAGENTO_VERSION=$(warden env exec -T php-fpm bin/magento -V | awk '{print $3}')
 if [[ ${USE_TFA} == 1 ]]; then
-  if test $(version $(warden env exec -T php-fpm bin/magento -V | awk '{print $3}')) -ge $(version 2.4.0); then
+  if test $(version ${MAGENTO_VERSION}) -ge $(version 2.4.0); then
     TFA_SECRET=$(warden env exec -T php-fpm pwgen -A1 128)
     TFA_SECRET=$(
       warden env exec -T php-fpm python -c "import base64; print base64.b32encode('${TFA_SECRET}')" | sed 's/=*$//'
@@ -665,8 +666,13 @@ fi
 
 ## check if two factor authentication is disabled, so it means that tfa module can be disabled as well
 if [[ ${USE_TFA} == 0 ]]; then
-  :: Disabling Two Factor Auth
-  warden env exec -T php-fpm bin/magento module:disable Magento_TwoFactorAuth
+  if test $(version ${MAGENTO_VERSION}) -ge $(version 2.4.6); then
+    :: Disabling Two Factor Auth and Admin Adobe Ims Two Factor Auth
+    warden env exec -T php-fpm bin/magento module:disable Magento_AdminAdobeImsTwoFactorAuth Magento_TwoFactorAuth
+  else
+    :: Disabling Two Factor Auth
+    warden env exec -T php-fpm bin/magento module:disable Magento_TwoFactorAuth
+  fi
 fi
 
 ## sampledata install

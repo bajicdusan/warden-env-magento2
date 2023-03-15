@@ -26,7 +26,7 @@ In the below examples `~/Sites/exampleproject` is used as the path. Simply repla
 
  1. Clone the project codebase.
 
-        git clone -b develop git@github.com:<GITHUB_ACCOUNT>/<REPOSITORY_NAME>.git \
+        git clone -b develop https://github.com/bajicdusan/warden-env-magento2.git \
             ~/Sites/exampleproject
 
  2. Change into the project directory.
@@ -50,7 +50,7 @@ In the below examples `~/Sites/exampleproject` is used as the path. Simply repla
 
  4. Run the init script to bootstrap the environment, starting the containers and mutagen sync (on macOS), installing the database (or importing if `--db-dump` or short `-u` is specified), and creating the local admin user for accessing the Magento backend.
 
-        warden bootstrap -cv 2.4.5-p1
+        warden bootstrap -cv 2.4.6
 
  5. Load the site in your browser using the links and credentials taken from the init script output. 
 

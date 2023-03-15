@@ -50,7 +50,7 @@ In the below examples `~/Sites/exampleproject` is used as the path. Simply repla
 
  4. Run the init script to bootstrap the environment, starting the containers and mutagen sync (on macOS), installing the database (or importing if `--db-dump` or short `-u` is specified), and creating the local admin user for accessing the Magento backend.
 
-        warden bootstrap -cv 2.4.6
+        warden bootstrap -c
 
  5. Load the site in your browser using the links and credentials taken from the init script output. 
 

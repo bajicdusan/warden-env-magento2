@@ -37,6 +37,8 @@ HTTP_PROTOCOL="https"
 PRINT_MORE_VERBOSE_ON_INSTALL=1
 ## if magento store url should be opened on install (2 = xdg-open, 1 = sensible-browser, 0 = off -> $traefik_url &>/dev/null)
 OPEN_IN_BROWSER=0
+## if warden bootstrap is passed without other arguments, default to clean install (default: SKIP=, SKIP=-1 will default to start env and svc)
+SKIP=0
 
 ## error messages:
 META_PACKAGE_ERROR_MESSAGE="Allowed magento2 metapackages: magento/project-community-edition, magento/project-enterprise-edition"
@@ -75,11 +77,13 @@ function print_error_message {
 
 ## start up warden environment and services
 function set_warden_up {
-  echo "Defaulting to start services and environment."
-  echo ""
-  warden svc up
-  warden env up -d
-  exit 1
+  if [[ ${SKIP} -eq -1 ]]; then
+    echo "Defaulting to start services and environment."
+    echo ""
+    warden svc up
+    warden env up -d
+    exit 1
+  fi
 }
 
 ## prints our help message for short arguments only
@@ -93,7 +97,7 @@ function print_single_slash_help_message {
   echo "Options:"
   echo "-c   --clean-install     install from scratch rather than use existing database dump"
   echo "-p   --meta-package      passed to 'create-project' and defaults to community"
-  echo "-v   --meta-version      specify alternate version to install; defaults to latest"
+  echo "-v   --meta-version      specify alternate version to install, defaults to latest"
   echo "-s   --skip-db-import    skips over db import (assume db has already been imported)"
   echo "-u   --db-dump           expects path to .sql.gz file for import during init"
   echo "-n   --no-pull           latest images will not be pulled prior env start"
@@ -107,16 +111,17 @@ if [[ $# -eq 0 ]]; then
   echo "There are no arguments passed to the command."
   echo ""
   set_warden_up
-  exit 1
+  SKIP=1
+  SINGLE_SLASH_ARGUMENTS=0
 fi
 
 ## check is short or long argument parsing
-if [[ ! ${SINGLE_SLASH_ARGUMENTS} && "$1" = --* ]]; then
+if [[ ${SKIP} != 1 && ! ${SINGLE_SLASH_ARGUMENTS} && "$1" = --* ]]; then
   SINGLE_SLASH_ARGUMENTS=0
   ## echo "DOUBLE quote"
 fi
 
-if [[ ! ${SINGLE_SLASH_ARGUMENTS} && "$1" = -* ]]; then
+if [[ ${SKIP} != 1 && ! ${SINGLE_SLASH_ARGUMENTS} && "$1" = -* ]]; then
   SINGLE_SLASH_ARGUMENTS=1
   ## echo "SINGLE quote"
 fi
@@ -505,6 +510,13 @@ warden env up -d
 
 ## wait for mariadb to start listening for connections
 warden shell -c "while ! nc -z db 3306 </dev/null; do sleep 2; done"
+
+if [[ ${META_VERSION} ]]; then
+  if test $(version "${META_VERSION}") -eq "$(version 2.4.6)"; then
+    :: "Applying temporary fix for Magento version 2.4.6, where PATH is not defined for this version, so it will default to install latest one."
+    META_VERSION=
+  fi
+fi
 
 if [[ ${CLEAN_INSTALL} ]] && [[ ! -f "${WARDEN_WEB_ROOT}/composer.json" ]]; then
   :: "Installing meta-package: '${META_PACKAGE}', Magento version: '${META_VERSION}'"

@@ -50,7 +50,21 @@ In the below examples `~/Sites/exampleproject` is used as the path. Simply repla
 
  4. Run the init script to bootstrap the environment, starting the containers and mutagen sync (on macOS), installing the database (or importing if `--db-dump` or short `-u` is specified), and creating the local admin user for accessing the Magento backend.
 
-        warden bootstrap -c
+    to get latest Magento version, you can simply run:
+
+        warden bootstrap
+
+    or you can specify it with following arguments:
+
+        warden bootstrap -cv 2.4.5-p1
+
+    to get more information for short argument passing, you can simply pass any argument that is other than (c,p,v,s,u,n,w)
+
+        warden bootstrap -abc
+
+    if you'd like more info for normal arguments, you can simply do:
+
+        warden bootstrap --help
 
  5. Load the site in your browser using the links and credentials taken from the init script output. 
 

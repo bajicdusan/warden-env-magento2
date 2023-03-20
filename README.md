@@ -121,5 +121,7 @@ If specified Magento version with (warden bootstrap -cv 2.4.5-p1), it will copy 
 
 - Added support to use 'cat' command dependency instead of the 'pv',
 
+- Added configuration to enable "warden bootstrap" without other arguments,
+
 - Added support for Magento 2.4.6 version (Known Issues):
     - ElasticSearch version is 7.17, should be 8.4 but that version is throwing error when reindexing ({"error":"no handler found for uri [/magento2_product_1_v3/document/_mapping?include_type_name=true] and method [PUT]"}),
